@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"common/events"
+	"github.com/liuqi0826/common/events"
 )
 
 type Connector struct {
