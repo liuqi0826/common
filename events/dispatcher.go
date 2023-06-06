@@ -22,8 +22,8 @@ type EventDispatcher struct {
 func (this *EventDispatcher) Constructor(host interface{}) {
 	if this != nil {
 		this.host = host
+		this.list = make(map[string]*dispatcher)
 	}
-	this.list = make(map[string]*dispatcher)
 }
 func (this *EventDispatcher) DispatchEvent(event *Event) {
 	if this != nil && this.list != nil {
@@ -93,7 +93,7 @@ type dispatcher struct {
 
 func (this *dispatcher) Constructor(eventType string) {
 	this.Type = eventType
-	this.listener = map[string]func(*Event){}
+	this.listener = make(map[string]func(*Event))
 }
 func (this *dispatcher) dispatch(event *Event) {
 	if this.listener == nil {

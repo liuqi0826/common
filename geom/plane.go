@@ -5,6 +5,7 @@ import (
 	"math/rand"
 )
 
+// ++++++++++++++++++++ Plane ++++++++++++++++++++
 type Plane struct {
 	A         float32
 	B         float32
@@ -13,7 +14,7 @@ type Plane struct {
 	alignment string
 }
 
-func (this *Plane) Plane(a float32, b float32, c float32, d float32) {
+func (this *Plane) Constructor(a float32, b float32, c float32, d float32) {
 	if a == 0 && b == 0 && c == 0 {
 		panic("Plane a,b,c all is 0.")
 	}
@@ -29,12 +30,12 @@ func (this *Plane) Plane(a float32, b float32, c float32, d float32) {
 	}
 }
 func (this *Plane) FromPoints(p0 *Vector4, p1 *Vector4, p2 *Vector4) {
-	d1x := p1.X - p0.X
-	d1y := p1.Y - p0.Y
-	d1z := p1.Z - p0.Z
-	d2x := p2.X - p0.X
-	d2y := p2.Y - p0.Y
-	d2z := p2.Z - p0.Z
+	var d1x = p1.X - p0.X
+	var d1y = p1.Y - p0.Y
+	var d1z = p1.Z - p0.Z
+	var d2x = p2.X - p0.X
+	var d2y = p2.Y - p0.Y
+	var d2z = p2.Z - p0.Z
 	this.A = d1y*d2z - d1z*d2y
 	this.B = d1z*d2x - d1x*d2z
 	this.C = d1x*d2y - d1y*d2x
@@ -64,44 +65,43 @@ func (this *Plane) FromNormalAndPoint(normal *Vector4, point *Vector4) {
 		this.alignment = ALIGN_ANY
 	}
 }
-func (this *Plane) GetNormal() Vector4 {
-	var normal Vector4
+func (this *Plane) GetNormal() (normal Vector4) {
+	normal = Vector4{}
 	normal.X = this.A
 	normal.Y = this.B
 	normal.Z = this.C
-	return normal
+	return
 }
-func (this *Plane) GetRandPoint() Vector4 {
-	var v Vector4
-	rx := rand.Float32()
-	ry := rand.Float32()
-	rz := float32(0.0)
+func (this *Plane) GetRandPoint() (v Vector4) {
+	v = Vector4{}
+	var rx = rand.Float32()
+	var ry = rand.Float32()
+	var rz = float32(0.0)
 	if this.C != 0.0 {
 		rz = -(this.A*rx + this.B*ry + this.D) / this.C
 	}
 	v.X, v.Y, v.Z, v.W = rx, ry, rz, 1.0
-	return v
+	return
 }
 func (this *Plane) Normalize() {
-	len := float32(1 / math.Sqrt(float64(this.A*this.A+this.B*this.B+this.C*this.C)))
+	var len = float32(1 / math.Sqrt(float64(this.A*this.A+this.B*this.B+this.C*this.C)))
 	this.A *= len
 	this.B *= len
 	this.C *= len
 	this.D *= len
 }
-func (this *Plane) Distance(v *Vector4) float32 {
-	var r float32
+func (this *Plane) Distance(v *Vector4) (dis float32) {
 	switch this.alignment {
 	case ALIGN_YZ_AXIS:
-		r = this.A*v.X - this.D
+		dis = this.A*v.X - this.D
 	case ALIGN_XZ_AXIS:
-		r = this.B*v.Y - this.D
+		dis = this.B*v.Y - this.D
 	case ALIGN_XY_AXIS:
-		r = this.C*v.Z - this.D
+		dis = this.C*v.Z - this.D
 	case ALIGN_ANY:
-		r = this.A*v.X + this.B*v.Y + this.C*v.Z - this.D
+		dis = this.A*v.X + this.B*v.Y + this.C*v.Z - this.D
 	}
-	return r
+	return
 }
 func (this *Plane) ClassifyPoint(v *Vector4, epsilon float32) string {
 	var len float32

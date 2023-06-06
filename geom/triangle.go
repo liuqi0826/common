@@ -1,40 +1,41 @@
 package geom
 
+//++++++++++++++++++++ Triangle ++++++++++++++++++++
 type Triangle struct {
 	Vector [3]*Vector4
 }
 
-func (this *Triangle) Triangle(v0, v1, v2 *Vector4) {
+func (this *Triangle) Constructor(v0, v1, v2 *Vector4) {
 	this.Vector = [3]*Vector4{}
 	if v0 != nil {
-		vct := v0.Clone()
+		var vct = v0.Clone()
 		this.Vector[0] = &vct
 	} else {
 		this.Vector[0] = &Vector4{}
 		this.Vector[0].W = 1.0
 	}
 	if v1 != nil {
-		vct := v1.Clone()
+		var vct = v1.Clone()
 		this.Vector[1] = &vct
 	} else {
 		this.Vector[1] = &Vector4{}
 		this.Vector[1].W = 1.0
 	}
 	if v2 != nil {
-		vct := v2.Clone()
+		var vct = v2.Clone()
 		this.Vector[2] = &vct
 	} else {
 		this.Vector[2] = &Vector4{}
 		this.Vector[2].W = 1.0
 	}
 }
-func (this *Triangle) GetNormal() *Vector4 {
-	e1, e2 := this.Vector[1].Clone(), this.Vector[2].Clone()
+func (this *Triangle) GetNormal() (normal *Vector4) {
+	var e1, e2 = this.Vector[1].Clone(), this.Vector[2].Clone()
 	e1.Subtract(this.Vector[0])
 	e2.Subtract(this.Vector[1])
-	normal := e1.CrossProduct(&e2)
+	normal = e1.CrossProduct(&e2)
 	normal.Normalize()
-	return normal
+	return
 }
 
 func (this *Triangle) PointInTriangle(point *Vector4) bool {

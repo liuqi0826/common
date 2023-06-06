@@ -1,5 +1,6 @@
 package geom
 
+//++++++++++++++++++++ Rectangle ++++++++++++++++++++
 type Rectangle struct {
 	X      float32
 	Y      float32
@@ -7,7 +8,7 @@ type Rectangle struct {
 	Height float32
 }
 
-func (this *Rectangle) Rectangle(x, y, width, height float32) {
+func (this *Rectangle) Constructor(x, y, width, height float32) {
 	this.X = x
 	this.Y = y
 	this.Width = width
