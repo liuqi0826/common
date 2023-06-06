@@ -2,26 +2,33 @@ package network
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 )
 
 type ChanSocket struct {
-	sync.Mutex
+	sync.RWMutex
 
-	active   bool
-	readBuf  chan []byte
-	writeBuf chan []byte
+	buffer chan []byte
+
+	other *ChanSocket
+
+	active bool
 }
 
 func (this *ChanSocket) Constructor() {
-	this.readBuf = make(chan []byte, 32)
-	this.writeBuf = make(chan []byte, 32)
+	this.buffer = make(chan []byte, 16)
 	this.active = true
+}
+func (this *ChanSocket) Bind(other *ChanSocket) (err error) {
+	this.other = other
+	fmt.Println("Chan connect from: " + fmt.Sprintf("%p", this.other))
+	return
 }
 func (this *ChanSocket) Read() ([]byte, error) {
 	var err error
 	if this.active {
-		if msg, ok := <-this.readBuf; ok {
+		if msg, ok := <-this.buffer; ok {
 			return msg, nil
 		} else {
 			err = errors.New("Read chan closed")
@@ -33,19 +40,22 @@ func (this *ChanSocket) Read() ([]byte, error) {
 }
 func (this *ChanSocket) Write(data []byte) {
 	if this.active {
-		this.writeBuf <- data
+		if this.other != nil && this.other.active {
+			this.other.buffer <- data
+		}
 	}
 }
-func (this *ChanSocket) Close() error {
-	var err error
+func (this *ChanSocket) Close() (err error) {
 	this.Lock()
 	defer this.Unlock()
+
 	if this.active {
 		this.active = false
-		close(this.readBuf)
-		close(this.writeBuf)
+		close(this.buffer)
+
+		fmt.Println("Chan close: " + fmt.Sprintf("%p", this.buffer))
 	} else {
-		err = errors.New("Closed!")
+		err = errors.New("Chan Closed!")
 	}
-	return err
+	return
 }

@@ -8,79 +8,101 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+type TLSConfig struct {
+	CertFile string
+	KeyFile  string
+}
+
 type WSocket struct {
 	sync.RWMutex
 
 	instance *websocket.Conn
 
-	active   bool
-	readBuf  chan []byte
-	writeBuf chan []byte
+	active bool
+
+	readBuffer  chan []byte
+	writeBuffer chan []byte
 }
 
 func (this *WSocket) Constructor(socket *websocket.Conn) {
 	this.instance = socket
-	this.readBuf = make(chan []byte, 32)
-	this.writeBuf = make(chan []byte, 32)
-	fmt.Println("Websocket connect from: " + fmt.Sprintf("%s", this.instance.RemoteAddr()))
+	if this.instance != nil {
+		fmt.Println("Websocket connect from: " + fmt.Sprintf("%s", this.instance.RemoteAddr()))
+		this.readBuffer = make(chan []byte, 16)
+		this.writeBuffer = make(chan []byte, 16)
 
-	go this.readListen()
-	go this.writeListen()
-}
-func (this *WSocket) Read() ([]byte, error) {
-	var err error
-	if this.active {
-		if msg, ok := <-this.readBuf; ok {
-			return msg, err
-		} else {
-			err = this.Close()
-		}
-	} else {
-		err = errors.New("Websocket connection closed")
+		go this.readListen()
+		go this.writeListen()
 	}
-	return nil, err
+}
+func (this *WSocket) Read() (data []byte, err error) {
+	if this != nil {
+		if this.active {
+			if data, ok := <-this.readBuffer; ok {
+				return data, err
+			} else {
+				err = errors.New("Websocket read chan closed")
+			}
+		} else {
+			err = errors.New("Websocket connect closed")
+		}
+	}
+	return
 }
 func (this *WSocket) Write(data []byte) {
-	if this.active {
-		if len(this.writeBuf) < cap(this.writeBuf) {
-			this.writeBuf <- data
+	if this != nil {
+		if this.active {
+			if len(this.writeBuffer) < cap(this.writeBuffer) {
+				this.writeBuffer <- data
+			}
 		}
 	}
 }
-func (this *WSocket) Close() error {
-	var err error
-	if this.active {
+func (this *WSocket) Close() (err error) {
+	if this != nil {
 		this.Lock()
 		defer this.Unlock()
-		this.active = false
-		close(this.readBuf)
-		close(this.writeBuf)
-		fmt.Println("Websocket close: " + fmt.Sprintf("%s", this.instance.RemoteAddr()))
-		err = this.instance.Close()
-	} else {
-		err = errors.New("Websocket has been closed.")
+		if this.active {
+			this.active = false
+			close(this.readBuffer)
+			close(this.writeBuffer)
+
+			fmt.Println("Websocket close: " + fmt.Sprintf("%s", this.instance.RemoteAddr()))
+			err = this.instance.Close()
+			if err != nil {
+				return
+			}
+		} else {
+			err = errors.New("Websocket has been closed.")
+		}
 	}
-	return err
+	return
 }
 func (this *WSocket) readListen() {
-	for this.active {
-		_, msg, err := this.instance.ReadMessage()
-		if err == nil {
-			this.readBuf <- msg
-		} else {
-			err = this.Close()
+	if this != nil {
+		for this.active {
+			_, data, err := this.instance.ReadMessage()
+			if err == nil {
+				this.readBuffer <- data
+			} else {
+				err = this.Close()
+			}
 		}
 	}
 }
 func (this *WSocket) writeListen() {
-	for this.active {
-		if message, ok := <-this.writeBuf; ok {
-			err := this.instance.WriteMessage(websocket.BinaryMessage, message)
-			if err != nil {
+	if this != nil {
+		for this.active {
+			if message, ok := <-this.writeBuffer; ok {
+				go func() {
+					var err = this.instance.WriteMessage(websocket.BinaryMessage, message)
+					if err != nil {
+						this.Close()
+					}
+				}()
+			} else {
 				this.Close()
 			}
-		} else {
-			this.Close()
 		}
 	}
 }

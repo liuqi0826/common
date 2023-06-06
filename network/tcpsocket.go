@@ -10,7 +10,7 @@ import (
 )
 
 type TCPSocket struct {
-	sync.Mutex
+	sync.RWMutex
 
 	instance *net.TCPConn
 
@@ -18,107 +18,122 @@ type TCPSocket struct {
 	headRead   bool
 	packageLen uint32
 	buffer     []byte
-	readBuf    chan []byte
-	writeBuf   chan []byte
+
+	readBuffer  chan []byte
+	writeBuffer chan []byte
 }
 
 func (this *TCPSocket) Constructor(socket *net.TCPConn) {
 	this.instance = socket
 	if this.instance != nil {
-		this.readBuf = make(chan []byte, 32)
-		this.writeBuf = make(chan []byte, 32)
-		fmt.Println("TCP instance from: " + fmt.Sprintf("%s", this.instance.RemoteAddr()))
+		fmt.Println("TCP connect from: " + fmt.Sprintf("%s", this.instance.RemoteAddr()))
+		this.readBuffer = make(chan []byte, 16)
+		this.writeBuffer = make(chan []byte, 16)
+
+		this.active = true
 
 		go this.readListen()
 		go this.writeListen()
-
-		this.active = true
 	}
 }
-func (this *TCPSocket) Read() ([]byte, error) {
-	var err error
-	if this.active {
-		if msg, ok := <-this.readBuf; ok {
-			return msg, nil
+func (this *TCPSocket) Read() (data []byte, err error) {
+	if this != nil {
+		if this.active {
+			if data, ok := <-this.readBuffer; ok {
+				return data, nil
+			} else {
+				err = errors.New("TCP read chan closed")
+			}
 		} else {
-			err = errors.New("TCP read chan closed")
+			err = errors.New("TCP connect closed")
 		}
-	} else {
-		err = errors.New("TCP connect closed")
 	}
-	return nil, err
+	return
 }
 func (this *TCPSocket) Write(data []byte) {
-	if this.active {
-		if len(this.writeBuf) < cap(this.writeBuf) {
-			var length = uint32(len(data))
-			var stream = bytes.NewBuffer([]byte{})
-			binary.Write(stream, binary.BigEndian, length)
-			binary.Write(stream, binary.BigEndian, data)
-			this.writeBuf <- stream.Bytes()
+	if this != nil {
+		if this.active {
+			if len(this.writeBuffer) < cap(this.writeBuffer) {
+				var length = uint32(len(data))
+				var stream = bytes.NewBuffer([]byte{})
+				binary.Write(stream, binary.BigEndian, length)
+				binary.Write(stream, binary.BigEndian, data)
+				this.writeBuffer <- stream.Bytes()
+			}
 		}
 	}
 }
-func (this *TCPSocket) Close() error {
-	var err error
-	this.Lock()
-	defer this.Unlock()
-	if this.active {
-		this.active = false
-		close(this.readBuf)
-		close(this.writeBuf)
-		fmt.Println("TCP close: " + fmt.Sprintf("%s", this.instance.RemoteAddr()))
-		err = this.instance.Close()
-	} else {
-		err = errors.New("TCP closed!")
+func (this *TCPSocket) Close() (err error) {
+	if this != nil {
+		this.Lock()
+		defer this.Unlock()
+		if this.active {
+			this.active = false
+			close(this.readBuffer)
+			close(this.writeBuffer)
+
+			fmt.Println("TCP close: " + fmt.Sprintf("%s", this.instance.RemoteAddr()))
+			err = this.instance.Close()
+			if err != nil {
+				return
+			}
+		} else {
+			err = errors.New("TCP has been closed!")
+		}
 	}
-	return err
+	return
 }
 
 func (this *TCPSocket) readListen() {
-	for this != nil && this.active {
-		var buffer = make([]byte, 4096)
-		length, err := this.instance.Read(buffer)
-		if err == nil {
-			this.buffer = append(this.buffer, buffer[:length]...)
-			for {
-				if this.headRead {
-					if len(this.buffer) >= int(this.packageLen) {
-						this.headRead = false
-						var data = bytes.NewBuffer(this.buffer[:this.packageLen])
-						this.buffer = this.buffer[this.packageLen:len(this.buffer)]
-						this.readBuf <- data.Bytes()
+	if this != nil {
+		for this.active {
+			var buffer = make([]byte, 2048)
+			var length, err = this.instance.Read(buffer)
+			if err == nil {
+				this.buffer = append(this.buffer, buffer[:length]...)
+				for {
+					if this.headRead {
+						if len(this.buffer) >= int(this.packageLen) {
+							this.headRead = false
+							var data = bytes.NewBuffer(this.buffer[:this.packageLen])
+							this.buffer = this.buffer[this.packageLen:len(this.buffer)]
+							this.readBuffer <- data.Bytes()
+						} else {
+							break
+						}
 					} else {
-						break
-					}
-				} else {
-					if len(this.buffer) >= 4 {
-						lenBuffer := bytes.NewBuffer(this.buffer[0:4])
-						err = binary.Read(lenBuffer, binary.BigEndian, &this.packageLen)
-						fmt.Println(err)
-						this.headRead = true
-						this.buffer = this.buffer[4:len(this.buffer)]
-					} else {
-						break
+						if len(this.buffer) >= 4 {
+							var lenBuffer = bytes.NewBuffer(this.buffer[0:4])
+							var e = binary.Read(lenBuffer, binary.BigEndian, &this.packageLen)
+							if e != nil {
+								fmt.Println(e)
+							}
+							this.headRead = true
+							this.buffer = this.buffer[4:len(this.buffer)]
+						} else {
+							break
+						}
 					}
 				}
+			} else {
+				this.Close()
 			}
-		} else {
-			this.Close()
 		}
 	}
 }
 func (this *TCPSocket) writeListen() {
-	for this != nil && this.active {
-		if msg, ok := <-this.writeBuf; ok {
-			go func() {
-				var _, err = this.instance.Write(msg)
-				if err != nil {
-
-				}
-			}()
-		} else {
-			this.Close()
+	if this != nil {
+		for this.active {
+			if msg, ok := <-this.writeBuffer; ok {
+				go func() {
+					var _, err = this.instance.Write(msg)
+					if err != nil {
+						this.Close()
+					}
+				}()
+			} else {
+				this.Close()
+			}
 		}
 	}
 }
