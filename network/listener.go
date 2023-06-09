@@ -11,23 +11,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func CreateTCPListener() (listener *TCPListener) {
-	listener = &TCPListener{}
-	return
-}
-func CreateUDPListener() (listener *UDPListener) {
-	listener = &UDPListener{}
-	return
-}
-func CreateWSListener() (listener *WSListener) {
-	listener = &WSListener{}
-	return
-}
-func CreateChanListener() (listener *ChanListener) {
-	listener = &ChanListener{}
-	return
-}
-
 // ==================== TCP Listener ====================
 type TCPListener struct {
 	sync.RWMutex

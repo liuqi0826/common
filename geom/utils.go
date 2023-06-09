@@ -4,10 +4,10 @@ import (
 	"math"
 )
 
-//弧度至角度
+// 弧度至角度
 const RADIANS_TO_DEGREES float32 = float32(180 / math.Pi)
 
-//角度至弧度
+// 角度至弧度
 const DEGREES_TO_RADIANS float32 = float32(math.Pi / 180)
 
 const CONST_2_PI float32 = math.Pi * 2.0
@@ -34,7 +34,7 @@ func FloatEqual(f0 float32, f1 float32) bool {
 }
 func Clampf(value float32, min_inclusive float32, max_inclusive float32) float32 {
 	if min_inclusive > max_inclusive {
-		temp := min_inclusive
+		var temp = min_inclusive
 		min_inclusive = max_inclusive
 		max_inclusive = temp
 	}
@@ -47,9 +47,9 @@ func Clampf(value float32, min_inclusive float32, max_inclusive float32) float32
 	return value
 }
 func Sqrt(x float64) float64 {
-	z := 1.0
+	var z = 1.0
 	for {
-		tmp := z - (z*z-x)/(2*z)
+		var tmp = z - (z*z-x)/(2*z)
 		if tmp == z || math.Abs(tmp-z) < 0.000000000001 {
 			break
 		}
